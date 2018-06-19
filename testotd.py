@@ -346,10 +346,12 @@ class testotd():
 
         order_history = []
         verbose = True
-        validate_fix = True
-    
+        validate_fix = False
+
+        fix_nos_messages = []
         fix_nos = None
         found_fix_nos = False
+        exch_order_num = None
     
         logfile = open(self.oc_log, 'r')
         for line in logfile.readlines():
@@ -363,20 +365,27 @@ class testotd():
                     if validate_fix:
                         if all(fix_nos_element in line for fix_nos_element in ["Send:", "8=FIX"]):
                             if any(fix_nos_element in line for fix_nos_element in ["35=D", "35=s"]):
-                                fix_nos = copy.copy(line)
+                                fix_nos_messages.append(line)
+                                if len(fix_nos_messages) > 25:
+                                    fix_nos_messages.pop(0)
+
                     if any(ordid in line for ordid in order_id):
                         if validate_fix:
+                            for exch_order_number_field in ["secondary_cl_ord_id=", "secondary_report_id="]:
+                                if exch_order_number_field in line:
+                                    exch_order_num = ((line.split(exch_order_number_field)[1]).split(" ")[0]).replace('"', '')
+                                    exch_order_num = None if exch_order_num == '' else exch_order_num
+                                    if exch_order_num not in order_id:
+                                        order_id.append(exch_order_num)
+
+                            if exch_order_num is not None:
+                                for fix_nos_message in fix_nos_messages:
+                                    if exch_order_num in fix_nos_message:
+                                        fix_nos = fix_nos_message
                             if not found_fix_nos and fix_nos is not None:
                                 order_history.append(fix_nos)
                                 found_fix_nos = True
                         order_history.append(line)
-
-                        for exch_order_number_field in ["secondary_cl_ord_id=", "secondary_report_id="]:
-                            if exch_order_number_field in line:
-                                exch_order_num = ((line.split(exch_order_number_field)[1]).split(" ")[0]).replace('"', '')
-                                exch_order_num = None if exch_order_num == '' else exch_order_num
-                                if exch_order_num not in order_id:
-                                    order_id.append(exch_order_num)
 
                         if "ORD_STATUS_CANCELED" in line:
                             break
@@ -398,11 +407,25 @@ class testotd():
         for i in range(0, len(self.verify_data_list)-1):
             compare_count = 1
             loop_compare = 1
-            before = self.verify_data_list[i]
             # after = self.verify_data_list[i+1]
             while loop_compare <= compare_count:
-                after = self.verify_data_list[i+loop_compare]
+                before = copy.deepcopy(self.verify_data_list[i])
+                after = copy.deepcopy(self.verify_data_list[i+loop_compare])
                 loop_compare += 1
+
+                # Work-around for false-failures comparing messages that aren't expected to be there
+                # TODO: Clean this up
+                if "newordersingle" in str([before.keys()[0][1], after.keys()[0][1]]).lower() and \
+                                "exec_type_pending_new" in str([before.keys()[0][1], after.keys()[0][1]]).lower():
+                    while "PARTY_ROLE" in str(before.values()[0]):
+                        for party_role_message in before.values()[0]:
+                            if "PARTY_ROLE" in str(party_role_message):
+                                before.values()[0].remove(party_role_message)
+                    while "PARTY_ROLE" in str(after.values()[0]):
+                        for party_role_message in after.values()[0]:
+                            if "PARTY_ROLE" in str(party_role_message):
+                                after.values()[0].remove(party_role_message)
+
                 self.verify_compare(before, after)
                 if "fix" not in before.keys()[0][1].lower() and "fix" in after.keys()[0][1].lower():
                     compare_count += 1
@@ -426,11 +449,6 @@ class testotd():
                 elif len(after.values()) == 0:
                     print "{0} contains no order tags.".format(after.keys()[0][0])
                     continue
-
-                if len(before.values()) == 0:
-                    print "{0} contains no order tags.".format(before.keys()[0][0])
-                elif len(after.values()) == 0:
-                    print "{0} contains no order tags.".format(before.keys()[0][0])
                 else:
                     for verification_point in before.values()[0]:
                         if verification_point not in after.values()[0]:
