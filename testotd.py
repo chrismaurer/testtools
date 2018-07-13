@@ -8,11 +8,11 @@ class testotd():
     
     def __init__(self):
 
-        # self.oc_log = r"/Users/cmaurer/testlog.log"
+        self.oc_log = r"/Users/cmaurer/testlog.log"
 
-        for logfile in os.listdir(r"/var/log/debesys/"):
-            if logfile.startswith("OC_") and logfile.endswith(".log"):
-                self.oc_log = r"/var/log/debesys/" + logfile
+        # for logfile in os.listdir(r"/var/log/debesys/"):
+        #     if logfile.startswith("OC_") and logfile.endswith(".log"):
+        #         self.oc_log = r"/var/log/debesys/" + logfile
 
         self.verify_data_list = []
 
@@ -441,10 +441,9 @@ class testotd():
                         for party_role_message in after.values()[0]:
                             if "PARTY_ROLE" in str(party_role_message):
                                 after.values()[0].remove(party_role_message)
-                    while any(message_to_skip in str(after.values()[0]) for message_to_skip in nos_unsupported):
-                        for after_message in after.values()[0]:
-                            if any(message_to_skip in after_message for message_to_skip in nos_unsupported):
-                                after.values()[0].remove(after_message)
+                    for after_message_element in after.values()[0]:
+                        if any(message_to_skip in after_message_element for message_to_skip in nos_unsupported):
+                            after.values()[0].remove(after_message_element)
 
                 self.verify_compare(before, after)
                 if "fix" not in before.keys()[0][1].lower() and "fix" in after.keys()[0][1].lower():
@@ -503,6 +502,6 @@ class testotd():
             if before_acct is not None and after_acct is not None:
                 print "\n{0} was matched to {1}".format(before_acct, after_acct)
 
-order_id = testotd().optmenu()
-# order_id = ["e0748fcb-8ebb-47fc-b744-d64296965f55", ]
+# order_id = testotd().optmenu()
+order_id = ["10b13275-7fb4-4809-b497-be2d4dff7ed6", ]
 testotd().verify_otd_data()
